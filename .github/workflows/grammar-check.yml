@@ -1,0 +1,43 @@
+name: Check Files for British Words
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+
+jobs:
+  check-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check files for British words
+        run: |
+          forbidden_words=("colour" "serialise" "neighbour" "organise" "recognise" "centre" "grey" "travelling" "modelled")
+
+          # Check files for forbidden words in a case-insensitive manner
+          for word in "${forbidden_words[@]}"; do
+            grep -r -i -q "$word" .
+            if [ $? -eq 0 ]; then
+              echo "Error: Found forbidden word '$word' in the files."
+              exit 1
+            fi
+          done
+
+      - name: Comment on failure
+        if: failure()
+        run: |
+          COMMENT=":x: The pull request contains forbidden words in the files. Please remove them."
+          echo "$COMMENT"
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} node -e "const github = require('@actions/github'); const context = github.context; const octokit = new github.getOctokit('${{ secrets.GITHUB_TOKEN }}'); octokit.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '$COMMENT'});"
